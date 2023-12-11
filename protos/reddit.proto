@@ -86,6 +86,9 @@ service RedditService {
     rpc GetTopComments (GetTopCommentsRequest) returns (GetTopCommentsResponse);
     rpc ExpandCommentBranch (ExpandCommentBranchRequest) returns (ExpandCommentBranchResponse);
 
+    //Monitor Updates
+    rpc MonitorUpdates(stream MonitorRequest) returns (stream ScoreUpdate);
+
 }
 message ListPostsRequest {
 }
@@ -226,6 +229,21 @@ message ExpandCommentBranchResponse {
 message CommentTree {
     Comment comment = 1;  // The main comment
     repeated CommentTree replies = 2;  // Replies to the comment, each of which can have their own replies
+}
+
+message MonitorRequest {
+    oneof request_type {
+        string postId = 1;  // ID of the post to monitor
+        string commentId = 2;  // ID of a comment to monitor
+    }
+}
+
+message ScoreUpdate {
+    oneof item {
+        string postId = 1;
+        string commentId = 2;
+    }
+    int32 score = 3;  // Updated score
 }
 
 

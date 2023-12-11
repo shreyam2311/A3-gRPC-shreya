@@ -188,6 +188,27 @@ class RedditService(reddit_pb2_grpc.RedditServiceServicer):
             message="Comment branch expanded",
             comments=[parent_comment_tree]
         )
+    def MonitorUpdates(self, request_iterator, context):
+        for request in request_iterator:
+            if request.HasField('postId'):
+                post_id = request.postId
+                print("post_id")
+                # Logic to get the score of the post
+                if post_id in self.posts:
+                    score = self.posts[post_id].score
+                    yield reddit_pb2.ScoreUpdate(postId=post_id, score=score)
+                else:
+                    context.abort(grpc.StatusCode.NOT_FOUND, f"Post with ID {post_id} not found")
+
+            elif request.HasField('commentId'):
+                comment_id = request.commentId
+                # Logic to get the score of the comment
+                if comment_id in self.comments:
+                    score = self.comments[comment_id].score
+                    yield reddit_pb2.ScoreUpdate(commentId=comment_id, score=score)
+                else:
+                    context.abort(grpc.StatusCode.NOT_FOUND, f"Comment with ID {comment_id} not found")
+
 # Command line argument for port, else default      
 def serve(port=50051, max_workers=10):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
