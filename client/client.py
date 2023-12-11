@@ -4,6 +4,8 @@ import os
 sys.path.insert(1, './protos')
 import reddit_pb2
 import reddit_pb2_grpc
+import threading
+import time
 
 def get_most_upvoted_reply_under_top_comment(stub, post_id):
     # Task 1: Retrieve a post
@@ -41,10 +43,7 @@ def get_most_upvoted_reply_under_top_comment(stub, post_id):
     # Task 4: Return the Most Upvoted Reply Under the Most Upvoted Comment
     return most_upvoted_reply if most_upvoted_reply else None
 
-def run():
-    with grpc.insecure_channel('localhost:50051') as channel:
-        stub = reddit_pb2_grpc.RedditServiceStub(channel)
-
+def run(stub):
         # Create a post
         post_response = stub.CreatePost(reddit_pb2.CreatePostRequest(title="Sample Post", content="This is a sample post"))
         post_id = post_response.post.id
@@ -73,12 +72,45 @@ def run():
         else:
             print("No upvoted replies found under the top comment.")
 
+def monitor_updates(stub):
+    def request_generator():
+        # Send initial request for a post
+        yield reddit_pb2.MonitorRequest(postId="1")  # Replace "1" with the actual post ID
+
+        # Continuously check for user input to send additional requests
+        while True:
+            comment_id = input("Enter a comment ID to monitor (or 'exit' to stop): ")
+            if comment_id.lower() == 'exit':
+                break
+            yield reddit_pb2.MonitorRequest(commentId=comment_id)
+    def listen_for_updates():
+        try:
+            for update in stub.MonitorUpdates(request_generator()):
+                if update.HasField('postId'):
+                    print(f"Updated score for post {update.postId}: {update.score}")
+                elif update.HasField('commentId'):
+                    print(f"Updated score for comment {update.commentId}: {update.score}")
+
+        except grpc.RpcError as e:
+            print(f"RPC failed: {e.code()}: {e.details()}")
+    # Start listening for updates in a separate thread
+    listener_thread = threading.Thread(target=listen_for_updates)
+    listener_thread.start()
+
+    # Wait for the listening thread to finish (when user enters 'exit')
+    listener_thread.join()
+
 if __name__ == '__main__':
-    run()
+    # Establish a connection to the server
+    channel = grpc.insecure_channel('localhost:50051')
+    stub = reddit_pb2_grpc.RedditServiceStub(channel)
 
+    # Run the main functionality
+    run(stub)
 
+    # Monitor updates based on user input
+    monitor_updates(stub)
 
-
-
-
+    # Close the channel after all operations are done
+    channel.close()
 
