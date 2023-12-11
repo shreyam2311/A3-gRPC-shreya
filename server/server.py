@@ -7,7 +7,7 @@ import reddit_pb2
 import reddit_pb2_grpc
 from google.protobuf import timestamp_pb2
 import datetime
-
+import argparse
 
 class RedditService(reddit_pb2_grpc.RedditServiceServicer):
 
@@ -188,49 +188,22 @@ class RedditService(reddit_pb2_grpc.RedditServiceServicer):
             message="Comment branch expanded",
             comments=[parent_comment_tree]
         )
-
-
-
-
-    # def ExpandCommentBranch(self, request, context):
-    #     def fetch_comments(comment_id, level):
-    #         if level > 2:
-    #             return []
-    #         comment = self.comments.get(comment_id)
-    #         if comment:
-    #             replies = [fetch_comments(reply.id, level + 1) for reply in self.comments.values() if reply.commentId == comment_id]
-    #             all_replies = [comment] + [reply for sublist in replies for reply in sublist]
-    #             return all_replies[:request.numberOfComments]  # Limit the number of comments returned
-    #         return []
-
-    #     # Fetch the parent comment
-    #     parent_comment = self.comments.get(request.parentCommentId)
-    #     if not parent_comment:
-    #         context.abort(grpc.StatusCode.NOT_FOUND, "Parent comment not found")
-
-    #     # Fetch all replies up to two levels
-    #     comment_tree = fetch_comments(request.parentCommentId, 1)
-
-    #     if not comment_tree:
-    #         context.abort(grpc.StatusCode.NOT_FOUND, "No comments found")
-
-    #     # Construct the response
-    #     return reddit_pb2.ExpandCommentBranchResponse(
-    #         success=True,
-    #         message="Comment branch expanded",
-    #         comments=comment_tree
-    #     )
-
-
-def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+# Command line argument for port, else default      
+def serve(port=50051, max_workers=10):
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
     reddit_pb2_grpc.add_RedditServiceServicer_to_server(RedditService(), server)
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port(f'[::]:{port}')
     server.start()
+    print(f"Server started on port {port}")
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
         server.stop(0)
 
 if __name__ == '__main__':
-    serve()
+    parser = argparse.ArgumentParser(description="Reddit gRPC Server")
+    parser.add_argument('--port', type=int, default=50051, help="Port to listen on")
+    parser.add_argument('--workers', type=int, default=10, help="Number of server workers")
+    args = parser.parse_args()
+
+    serve(port=args.port, max_workers=args.workers)
