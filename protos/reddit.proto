@@ -1,0 +1,232 @@
+
+syntax = "proto3";
+
+
+package reddit;
+
+enum PostState {
+    NORMAL = 0;
+    LOCKED = 1;
+    HIDDEN = 2;
+}
+
+enum CommentState {
+    COMMENT_NORMAL = 0;
+    COMMENT_HIDDEN = 1;
+}
+// The Post message represents a post in the system
+message Post {
+    string id = 1;
+    string title = 2;
+    string content = 3;
+    int32 score = 4; // Score of the post
+    PostState state = 5; // State of the post
+    string publicationDate = 6; // Publication date in YYYY-MM-DDTHH:MM format
+    oneof media{
+        string image_url=7;
+        string video_url=8;
+    }
+    string subredditId=9;
+}
+
+
+// The Comment message represents a comment in the system
+message Comment {
+    string id = 1;
+    string content = 2;
+    oneof rootId{   //The root comment is under, could be post or comment
+        string postId=3;
+        string commentId=4;
+    }
+    string authorId = 5; // ID of the user who authored the comment
+    int32 score = 6; // Score of the comment
+    CommentState state = 7; // State of the comment
+    string publicationDate = 8; // Publication date in YYYY-MM-DDTHH:MM format
+}
+
+message SubReddit{
+    string id=1;
+    string name=2;
+    SubredditScope scope=3;
+    repeated string tags=4;
+}
+
+enum SubredditScope{
+    SUBREDDIT_PUBLIC=0;
+    SUBREDDIT_PRIVATE=1;
+    SUBREDDIT_HIDDEN=2;
+}
+
+// The User message represents a user in the system
+message User {
+    string id = 1; // Unique identifier for the user
+    string username = 2; // Username of the user
+    string email = 3; // Email address of the user
+    repeated Post posts = 4; // Posts created by the user
+    repeated Comment comments = 5; // Comments made by the user
+}
+
+service RedditService {
+    // User related RPCs
+    rpc CreateUser(CreateUserRequest) returns (UserResponse);
+    rpc GetUser(GetUserRequest) returns (UserResponse);
+
+    // Post related RPCs
+    rpc CreatePost(CreatePostRequest) returns (PostResponse);
+    rpc GetPost(GetPostRequest) returns (GetPostResponse);
+    rpc ListPosts(ListPostsRequest) returns (stream PostResponse);
+
+    // Comment related RPCs
+    rpc CreateComment(CreateCommentRequest) returns (CreateCommentResponse);
+    rpc GetComment(GetCommentRequest) returns (CommentResponse);
+    rpc ListComments(ListCommentsRequest) returns (stream CommentResponse);
+
+    rpc VotePost (VotePostRequest) returns (VotePostResponse);
+    rpc VoteComment(VoteCommentRequest) returns (VoteCommentResponse);
+    rpc GetTopComments (GetTopCommentsRequest) returns (GetTopCommentsResponse);
+    rpc ExpandCommentBranch (ExpandCommentBranchRequest) returns (ExpandCommentBranchResponse);
+
+}
+message ListPostsRequest {
+}
+
+// Request and response messages for users
+message CreateUserRequest {
+    string id = 1;
+    string username = 2;
+    string email = 3;
+}
+
+
+message GetUserRequest {
+    string id = 1;
+}
+
+message UserResponse {
+    User user = 1;
+}
+
+// Request and response messages for posts
+message CreatePostRequest {
+    string title = 1;
+    string content = 2;
+    string subredditId=3;
+    PostState state = 4;
+    oneof media{
+        string image_url=5;
+        string video_url=6;
+    }
+}
+
+message GetPostRequest {
+    string id = 1;
+}
+message GetPostResponse {
+    bool success=1;
+    string message=2;
+    Post post=3;
+}
+message PostResponse {
+    bool success=1;
+    string message=2;
+    Post post = 3;
+}
+
+// Request for creating a comment
+message CreateCommentRequest {
+    string content = 1;
+    oneof rootId {
+        string postId = 2;
+        string commentId = 3;
+    }
+    string authorId = 4;
+    CommentState state=5;
+}
+
+// Response for creating a comment
+message CreateCommentResponse {
+    bool success = 1;
+    string message = 2;
+    Comment comment = 3; 
+}
+
+
+message GetCommentRequest {
+    string id = 1;
+}
+
+message CommentResponse {
+    Comment comment = 1;
+}
+
+message ListCommentsRequest {
+    string postId = 1; // ID of the post to list comments for
+}
+
+// Request for upvoting/downvoting a post
+message VotePostRequest {
+    string postId = 1;
+    VoteType voteType = 2;  // Type of vote (upvote or downvote)
+}
+
+enum VoteType {
+    UPVOTE = 0;
+    DOWNVOTE = 1;
+}
+
+message VotePostResponse {
+    bool success = 1;  // Indicates if the operation was successful
+    string message=2;
+    int32 updatedScore = 3;  // The updated score of the post after voting
+}
+
+message VoteCommentRequest {
+    string commentId = 1;
+    VoteType voteType = 2;  // Type of vote (upvote or downvote)
+}
+
+message VoteCommentResponse {
+    bool success = 1;  
+    string message=2;
+    int32 updatedScore = 3;  // The updated score of the post after voting
+}
+
+// Request for retrieving top N comments of a post
+message GetTopCommentsRequest {
+    string postId = 1;  
+    int32 numberOfComments = 2;  // Number of top comments to retrieve
+}
+
+// Comment with its replies
+message CommentWithReplies {
+    Comment comment = 1;  // The comment data
+    repeated Comment replies = 2;  // Replies to the comment
+}
+
+// Response for retrieving top N comments of a post
+message GetTopCommentsResponse {
+    bool success=1;
+    string message=2;
+    repeated CommentWithReplies comments = 3;  // List of top comments with their replies
+}
+
+// Request for expanding a comment branch
+message ExpandCommentBranchRequest {
+    string parentCommentId = 1;  // ID of the parent comment
+    int32 numberOfComments = 2;  // Number of top comments to retrieve at each level
+}
+
+
+message ExpandCommentBranchResponse {
+    bool success = 1;
+    string message = 2;
+    repeated CommentTree comments = 3;  // The expanded comment branch
+}
+
+message CommentTree {
+    Comment comment = 1;  // The main comment
+    repeated CommentTree replies = 2;  // Replies to the comment, each of which can have their own replies
+}
+
+
+
